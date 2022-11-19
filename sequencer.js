@@ -112,6 +112,7 @@ process.stdout.write("Lockfile Path: [" + lockFile + "]\n");
 link.startUpdate(60, (beat, phase, bpm) => {
     let intBeat = Math.floor(beat);
     let intBpm = Math.round(bpm);
+    let intPhase = Math.round(phase);
 
     if (beatCounter >= intBeat) {
         return;
@@ -142,6 +143,7 @@ link.startUpdate(60, (beat, phase, bpm) => {
     status =
         "[" +rotate[rotateCurrent]+"] " + 
         "[BPM: " + intBpm + "] " + 
+        "[Phase: " + intPhase + "] " + 
         "[Camera: " + pad(currentCamera.name, 12) + "] " +
         "[AtemOSC: " + pad(atemStatus, 5) + "] " +
         "[SynthesiaOSC: " + pad(synthesiaStatus, 5) + "] " + 
