@@ -53,7 +53,7 @@ let lockTime = 60; // even when a lockfile is present, if its older than lockTim
 let lockFile = getLockFilePath(); // lockfile path from the first argument
 let lockTimeLeft = 0; // how many seconds left from an active lock (state)
 
-let currentCamera = 0;
+let currentCamera = cameras[lockCamera];
 let atemStatus = null;
 let synthesiaStatus = null;
 let beatCounter = -1;
