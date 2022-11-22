@@ -1,6 +1,7 @@
 const { Client } = require('node-osc');
 const abletonlink = require('abletonlink');
 const firstline = require('firstline');
+const readline = require('readline');
 const pad = require('pad');
 const link = new abletonlink();
 
@@ -53,9 +54,11 @@ let lockTime = 60; // even when a lockfile is present, if its older than lockTim
 let lockFile = getLockFilePath(); // lockfile path from the first argument
 let lockTimeLeft = 0; // how many seconds left from an active lock (state)
 
+let linkPeers = link.getNumPeers();
+let isPlaying = false; // can't query initial state - seems to be there is a bug in the wrapper: https://github.com/2bbb/node-abletonlink/issues/18
+
+let isPaused = false;
 let currentCamera = cameras[lockCamera];
-let atemStatus = null;
-let synthesiaStatus = null;
 let beatCounter = -1;
 let status = "";
 let rotate = "|/-\\";
@@ -106,8 +109,41 @@ function oscSend(client, message) {
     });
 }
 
+function switchToDefaultCamera() {
+    currentCamera = cameras[lockCamera];
+    atemStatus = oscSend(atemClient, currentCamera.osc);
+    return currentCamera;
+}
+
+function printStatus(status) {
+    process.stdout.write("\r" + pad(status, 100));
+}
+
 process.stdout.write("OSC Sequencer\n");
 process.stdout.write("Lockfile Path: [" + lockFile + "]\n");
+
+link.enablePlayStateSync();
+
+link.onPlayStateChanged((playState) => {
+    isPlaying = playState;
+});
+
+readline.emitKeypressEvents(process.stdin);
+
+process.stdin.on('keypress', (ch, key) => {
+    if (key && key.name === 'q') {
+        link.stopUpdate();
+        link.disable();
+        process.stdin.pause();
+        console.log("\nGoodbye.\n");
+        process.exit(0);
+    }
+    if (key && key.name === 'p') {
+        isPaused = !isPaused;
+    }
+});
+
+process.stdin.setRawMode(true);
 
 link.startUpdate(60, (beat, phase, bpm) => {
     let intBeat = Math.floor(beat);
@@ -119,17 +155,26 @@ link.startUpdate(60, (beat, phase, bpm) => {
     }
     beatCounter = intBeat;
 
-    getLockTimeFromFile(); 
+    linkPeers = link.getNumPeers();
 
-    if (lockTimeLeft === 0) {
-        if (intBeat % 16 === 0) {
-            currentCamera = getRandomCamera();
-            atemStatus = oscSend(atemClient, currentCamera.osc);
-        }
+    if (isPaused) {
+        currentCamera = switchToDefaultCamera();
+    } else if (linkPeers === 0) {
+        // -- No link, we switch to default camera
+        currentCamera = switchToDefaultCamera();
     } else {
-        if (intBeat % 4 === 0) {
-           currentCamera = cameras[lockCamera];
-            atemStatus = oscSend(atemClient, currentCamera.osc);
+        getLockTimeFromFile(); 
+        if (lockTimeLeft === 0) {
+            // no lock, we pick random camera
+            if (intBeat % 16 === 0) {
+                currentCamera = getRandomCamera();
+                atemStatus = oscSend(atemClient, currentCamera.osc);
+            }
+        } else {
+            // lock active, we pick default camera
+            if (intBeat % 4 === 0) {
+                currentCamera = switchToDefaultCamera();
+            }
         }
     }
 
@@ -140,13 +185,22 @@ link.startUpdate(60, (beat, phase, bpm) => {
     }
 
     rotateCurrent = (intBeat % 4);
+    let rotateAnim = rotate[rotateCurrent];
+
+    if (linkPeers === 0) {
+        rotateAnim = '-';
+        intBpm = 0;
+        intPhase = 0;
+    }
     status =
-        "[" +rotate[rotateCurrent]+"] " + 
+        "[" + rotateAnim +"] " + 
         "[BPM: " + intBpm + "] " + 
         "[Phase: " + intPhase + "] " + 
+        "[Peers: " + linkPeers + "] " +         
         "[Camera: " + pad(currentCamera.name, 12) + "] " +
-        "[AtemOSC: " + pad(atemStatus, 5) + "] " +
-        "[SynthesiaOSC: " + pad(synthesiaStatus, 5) + "] " + 
+        "[Paused: " + isPaused + "] " + 
         "[LockTime: " + lockTimeLeft + "]";
-    process.stdout.write("\r" + pad(status, 80));
+    printStatus(status);
 });
+
+link.enable();
