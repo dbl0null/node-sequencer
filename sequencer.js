@@ -28,6 +28,10 @@ let cameras = [
         "name": "visual-fx",
         "osc": "/atem/program/3"
     },
+//    {
+//	"name": "vr",
+//	"osc": "/atem/program/5"
+//    },
     {
         "name": "supersource",
         "osc": "/atem/program/6000"
@@ -121,6 +125,11 @@ function printStatus(status) {
 
 process.stdout.write("OSC Sequencer\n");
 process.stdout.write("Lockfile Path: [" + lockFile + "]\n");
+
+process.stdout.write("Cameras: [");
+cameras.forEach(camera => process.stdout.write(" " + camera.name + " "));
+process.stdout.write("]\n");
+
 
 link.enablePlayStateSync();
 
